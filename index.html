@@ -119,6 +119,13 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--text-faint); border-top-color: var(--gold); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: -2px; }
   @keyframes rot { to { transform: rotate(360deg); } }
+  .badge.unseen { background: rgba(176,124,255,.16); color:#c8a8ff; border:1px solid rgba(176,124,255,.34); }
+  .badge.alist { background: rgba(232,179,57,.16); color: var(--gold); border:1px solid rgba(232,179,57,.4); }
+  .seg { display:flex; gap:6px; background:var(--bg-card-2); border:1px solid var(--border); border-radius:12px; padding:4px; margin-bottom:13px; }
+  .seg-btn { flex:1; background:transparent; border:none; color:var(--text-dim); font-weight:700; font-size:14px; padding:10px; border-radius:9px; cursor:pointer; }
+  .seg-btn.active { background:var(--red); color:#fff; }
+  .unseen-row { display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--bg-card-2); border:1px solid var(--border); border-radius:11px; padding:11px 13px; margin-bottom:13px; }
+  .unseen-row .lt { margin:0; }
 </style>
 </head>
 <body>
@@ -135,6 +142,8 @@
   <section class="view" id="view-movies"><div class="filter-bar" id="movieFilters"></div><div id="movieList"></div></section>
 
   <section class="view" id="view-watchlist"><div class="section-title">Want to see</div><div id="watchList"></div></section>
+
+  <section class="view" id="view-theaters"><div class="section-title">My theaters</div><div id="theaterBody"></div></section>
 
   <section class="view" id="view-settings">
     <div class="section-title">A-List</div>
@@ -181,12 +190,20 @@
     </div>
 
     <div id="seenFields">
+      <div class="seg" id="segWhere">
+        <button type="button" class="seg-btn active" data-where="theater" onclick="setWhere('theater')">🎬 Theater</button>
+        <button type="button" class="seg-btn" data-where="home" onclick="setWhere('home')">🏠 At home</button>
+      </div>
+      <label class="unseen-row" id="unseenRow"><span class="lt">🎭 Unseen Screening (mystery night)</span><input type="checkbox" id="fUnseen" style="width:auto;transform:scale(1.4)" onchange="onUnseenToggle()"></label>
       <div class="tmdb-search-row">
         <input type="text" id="fTitle" placeholder="Movie title" autocomplete="off">
         <button class="tmdb-find" onclick="doTmdbSearch()" id="tmdbFindBtn">Find</button>
       </div>
       <div class="tmdb-results" id="tmdbResults"></div>
       <div id="selectedWrap"></div>
+      <div id="guessWrap" style="display:none">
+        <label class="field"><span class="lt">Your guess before it started (optional)</span><input type="text" id="fGuess" placeholder="What did you think it would be?" autocomplete="off"></label>
+      </div>
 
       <div class="row2">
         <label class="field"><span class="lt">Date seen</span><input type="date" id="fDate"></label>
@@ -196,7 +213,7 @@
         <label class="field"><span class="lt">Regular ticket price ($)</span><input type="number" id="fValue" step="0.01" inputmode="decimal" placeholder="18.50"></label>
         <label class="field"><span class="lt">Runtime (minutes)</span><input type="number" id="fRuntime" inputmode="numeric" placeholder="120"></label>
       </div>
-      <label class="field"><span class="lt">Theater (optional)</span><input type="text" id="fTheater" placeholder="e.g. AMC Mission Valley" autocomplete="off"></label>
+      <label class="field"><span class="lt">Theater (optional)</span><input type="text" id="fTheater" list="theaterList" placeholder="e.g. AMC Mission Valley" autocomplete="off"><datalist id="theaterList"></datalist></label>
       <label class="field"><span class="lt">Your rating</span><div class="star-pick" id="starPick"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div></label>
       <label class="field"><span class="lt">Notes / quick review (optional)</span><textarea id="fNotes" placeholder="What did you think?"></textarea></label>
     </div>
@@ -210,6 +227,7 @@
   <button class="active" data-view="home" onclick="switchView('home')"><span class="ic">🏠</span>Home</button>
   <button data-view="movies" onclick="switchView('movies')"><span class="ic">🎞️</span>Movies</button>
   <button data-view="watchlist" onclick="switchView('watchlist')"><span class="ic">📌</span>Watchlist</button>
+  <button data-view="theaters" onclick="switchView('theaters')"><span class="ic">🎦</span>Theaters</button>
   <button data-view="settings" onclick="switchView('settings')"><span class="ic">⚙️</span>Settings</button>
 </nav>
 
@@ -217,7 +235,7 @@
 
 <script>
 const STORE_KEY = 'movieTracker_v2';
-const defaultState = { movies: [], watchlist: [], settings: { fee: 27.99, since: '', maxWeek: 4, tmdbKey: '' } };
+const defaultState = { movies: [], watchlist: [], theaters: [], settings: { fee: 27.99, since: '', maxWeek: 4, tmdbKey: '' } };
 let state = load();
 let pickedStars = 0, currentFilter = 'all', periodIndex = 0, selectedTmdb = null;
 
@@ -226,7 +244,7 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem('movieTracker_v1');
     if (!raw) return clone(defaultState);
     const s = JSON.parse(raw);
-    s.movies = s.movies || []; s.watchlist = s.watchlist || [];
+    s.movies = s.movies || []; s.watchlist = s.watchlist || []; s.theaters = s.theaters || [];
     s.settings = Object.assign({}, defaultState.settings, s.settings || {});
     return s;
   } catch(e) { return clone(defaultState); }
@@ -247,15 +265,17 @@ function periodLabel(p){ if(p.mode==='all')return 'All Time'; const [y,m]=p.ym.s
 function stepPeriod(dir){ const max=monthList().length; periodIndex=Math.min(max,Math.max(0,periodIndex+dir)); document.getElementById('periodLabel').textContent=periodLabel(currentPeriod()); if(document.getElementById('view-home').classList.contains('active'))renderDash(); }
 function monthsSince(dateStr){ if(!dateStr)return 1; const start=new Date(dateStr+'T00:00:00'),now=new Date(); let months=(now.getFullYear()-start.getFullYear())*12+(now.getMonth()-start.getMonth()); if(now.getDate()>=start.getDate())months+=1; return Math.max(1,months); }
 function isSameWeek(dateStr){ const d=new Date(dateStr+'T00:00:00'),now=new Date();const day=(now.getDay()+6)%7;const mon=new Date(now);mon.setDate(now.getDate()-day);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return d>=mon&&d<=sun; }
+// A-List movie = a theater movie seen on or after the AMC A-List member-since date
+function isAList(m){ if(m.atHome) return false; const since=state.settings.since; if(!since) return true; return (m.date||'') >= since; }
 
 /* ---------- Views ---------- */
 function switchView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  document.getElementById('pageTitle').textContent={home:'Home',movies:'My Movies',watchlist:'Watchlist',settings:'Settings'}[v];
+  document.getElementById('pageTitle').textContent={home:'Home',movies:'My Movies',watchlist:'Watchlist',theaters:'Theaters',settings:'Settings'}[v];
   document.querySelector('.period-pill').style.visibility = v==='home'?'visible':'hidden';
-  if(v==='home')renderDash(); if(v==='movies'){buildFilters();renderMovies();} if(v==='watchlist')renderWatch(); if(v==='settings')fillSettings();
+  if(v==='home')renderDash(); if(v==='movies'){buildFilters();renderMovies();} if(v==='watchlist')renderWatch(); if(v==='theaters')renderTheaters(); if(v==='settings')fillSettings();
   window.scrollTo(0,0);
 }
 let toastT;
@@ -264,8 +284,8 @@ function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=msg; 
 /* ---------- Dashboard ---------- */
 function renderDash(){
   const p=currentPeriod(); const fee=state.settings.fee||0; let movies,fees,periodMonths;
-  // Only theater movies count toward A-List economics
-  const theaterAll = state.movies.filter(m=>!m.atHome);
+  // Only A-List movies (theater, on/after member-since) count toward A-List economics
+  const theaterAll = state.movies.filter(isAList);
   if(p.mode==='all'){ movies=theaterAll.slice(); periodMonths=monthsSince(state.settings.since); fees=fee*periodMonths; }
   else { movies=theaterAll.filter(m=>(m.date||'').slice(0,7)===p.ym); periodMonths=1; fees=fee; }
 
@@ -313,15 +333,19 @@ function renderDash(){
 
   const rated=movies.filter(x=>x.rating); const avgRating=rated.length?(rated.reduce((s,x)=>s+x.rating,0)/rated.length):0;
   const fmtCount={}; movies.forEach(x=>fmtCount[x.format]=(fmtCount[x.format]||0)+1); const topFmt=Object.entries(fmtCount).sort((a,b)=>b[1]-a[1])[0];
+  const thCount={}; movies.forEach(x=>{ if(x.theater)thCount[x.theater]=(thCount[x.theater]||0)+1; }); const topTheater=Object.entries(thCount).sort((a,b)=>b[1]-a[1])[0];
+  const unseenN=movies.filter(x=>x.unseen).length;
   const breakEven=(count&&ticketValue)?Math.ceil(fee/(ticketValue/count)):0;
   if(count){
     html+=`<div class="card"><div class="section-title" style="margin:0 0 10px">Insights ${p.mode==='all'?'(all time)':'('+periodLabel(p)+')'}</div><div class="insight-text">
       ${avgRating?`Average rating <strong>${avgRating.toFixed(1)} ★</strong>.<br>`:''}
       ${topFmt?`Most-watched format <strong>${esc(topFmt[0])}</strong> (${topFmt[1]}).<br>`:''}
+      ${topTheater?`Most-visited theater <strong>${esc(topTheater[0])}</strong> (${topTheater[1]}).<br>`:''}
+      ${unseenN?`Unseen Screenings: <strong>${unseenN}</strong>.<br>`:''}
       ${breakEven?`Need about <strong>${breakEven} movie${breakEven>1?'s':''}/month</strong> to break even on the ${money(fee)} pass.`:''}
     </div></div>`;
   } else {
-    html+=`<div class="empty-state" style="padding:30px 20px"><div class="big">🍿</div><p>No theater movies logged ${p.mode==='all'?'yet':'this month'}.</p><p>Tap + to add one.</p></div>`;
+    html+=`<div class="empty-state" style="padding:30px 20px"><div class="big">🍿</div><p>No A-List movies logged ${p.mode==='all'?'yet':'this month'}.</p><p>Tap + to add one.</p></div>`;
   }
   document.getElementById('dashBody').innerHTML=html;
 }
@@ -405,9 +429,12 @@ function openAdd(mode){
   document.getElementById('fNotes').value='';
   document.getElementById('fPoster').value='';
   document.getElementById('fAtHome').value='0';
+  document.getElementById('fUnseen').checked=false;
+  document.getElementById('fGuess').value='';
   document.getElementById('tmdbResults').innerHTML='';
   selectedTmdb=null; renderSelected();
   setStars(0);
+  setWhere('theater'); populateTheaterList(); onUnseenToggle();
   document.getElementById('modalBg').classList.add('open');
 }
 function openAddWatch(){ openAdd('watch'); }
@@ -426,14 +453,18 @@ function editMovie(id){
   document.getElementById('fRuntime').value=m.runtime||'';
   document.getElementById('fNotes').value=m.notes||'';
   document.getElementById('fPoster').value=m.poster||'';
-  document.getElementById('fAtHome').value=m.atHome?'1':'0';
+  document.getElementById('fUnseen').checked=!!m.unseen;
+  document.getElementById('fGuess').value=m.guess||'';
   document.getElementById('tmdbResults').innerHTML='';
   selectedTmdb=m.poster?{title:m.title,year:m.year||'',poster:m.poster}:null; renderSelected();
   setStars(m.rating||0);
+  setWhere(m.atHome?'home':'theater'); populateTheaterList(); onUnseenToggle();
   document.getElementById('modalBg').classList.add('open');
 }
 function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
 function switchAfterModal(v){ closeModal(); switchView(v); }
+function setWhere(w){ document.getElementById('fAtHome').value = w==='home'?'1':'0'; document.querySelectorAll('#segWhere .seg-btn').forEach(b=>b.classList.toggle('active', b.dataset.where===w)); document.getElementById('unseenRow').style.display = w==='home'?'none':'flex'; if(w==='home'){ document.getElementById('fUnseen').checked=false; onUnseenToggle(); } }
+function onUnseenToggle(){ const on=document.getElementById('fUnseen').checked; document.getElementById('guessWrap').style.display=on?'block':'none'; document.getElementById('fTitle').placeholder=on?'Revealed title (blank if not revealed yet)':'Movie title'; }
 function setStars(n){ pickedStars=n; document.querySelectorAll('#starPick span').forEach(s=>s.classList.toggle('on',parseInt(s.dataset.v)<=n)); }
 document.querySelectorAll('#starPick span').forEach(s=>s.addEventListener('click',()=>{const v=parseInt(s.dataset.v);setStars(v===pickedStars?0:v);}));
 
@@ -444,10 +475,11 @@ function saveMovie(){
     if(!t){ toast('Add a title first'); return; }
     state.watchlist.unshift({id:uid(),title:t}); save(); closeModal(); renderWatch(); toast('Added to watchlist'); return;
   }
+  const unseen=document.getElementById('fUnseen').checked && document.getElementById('fAtHome').value!=='1';
   const title=document.getElementById('fTitle').value.trim();
-  if(!title){ toast('Add a title first'); return; }
+  if(!title && !unseen){ toast('Add a title first'); return; }
   const id=document.getElementById('editId').value;
-  const data={ title, date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10), format:document.getElementById('fFormat').value, theater:document.getElementById('fTheater').value.trim(), value:parseFloat(document.getElementById('fValue').value)||0, runtime:parseInt(document.getElementById('fRuntime').value)||0, rating:pickedStars, notes:document.getElementById('fNotes').value.trim(), poster:document.getElementById('fPoster').value||'', atHome:document.getElementById('fAtHome').value==='1' };
+  const data={ title, date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10), format:document.getElementById('fFormat').value, theater:document.getElementById('fTheater').value.trim(), value:parseFloat(document.getElementById('fValue').value)||0, runtime:parseInt(document.getElementById('fRuntime').value)||0, rating:pickedStars, notes:document.getElementById('fNotes').value.trim(), poster:document.getElementById('fPoster').value||'', atHome:document.getElementById('fAtHome').value==='1', unseen, guess:document.getElementById('fGuess').value.trim() };
   if(id){ Object.assign(state.movies.find(x=>x.id===id),data); toast('Updated'); }
   else { state.movies.unshift(Object.assign({id:uid()},data)); toast('Movie logged 🍿'); }
   save(); closeModal();
@@ -466,6 +498,8 @@ function buildFilters(){
   const formats=[...new Set(state.movies.map(m=>m.format))];
   let html=`<div class="chip ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">All (${state.movies.length})</div>`;
   html+=`<div class="chip ${currentFilter==='theater'?'active':''}" onclick="setFilter('theater')">Theater (${state.movies.filter(m=>!m.atHome).length})</div>`;
+  const alistN=state.movies.filter(isAList).length; if(alistN) html+=`<div class="chip ${currentFilter==='alist'?'active':''}" onclick="setFilter('alist')">A-List (${alistN})</div>`;
+  const unseenN=state.movies.filter(m=>m.unseen).length; if(unseenN) html+=`<div class="chip ${currentFilter==='unseen'?'active':''}" onclick="setFilter('unseen')">🎭 Unseen (${unseenN})</div>`;
   formats.forEach(f=>{ const n=state.movies.filter(m=>m.format===f).length; html+=`<div class="chip ${currentFilter===f?'active':''}" onclick="setFilter('${f.replace(/'/g,"\\'")}')">${f} (${n})</div>`; });
   document.getElementById('movieFilters').innerHTML=state.movies.length?html:'';
 }
@@ -474,26 +508,50 @@ function renderMovies(){
   const list=document.getElementById('movieList');
   let movies=state.movies.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(currentFilter==='theater') movies=movies.filter(m=>!m.atHome);
+  else if(currentFilter==='alist') movies=movies.filter(isAList);
+  else if(currentFilter==='unseen') movies=movies.filter(m=>m.unseen);
   else if(currentFilter!=='all') movies=movies.filter(m=>m.format===currentFilter);
   if(!movies.length){ list.innerHTML=`<div class="empty-state"><div class="big">🎬</div><p><strong>No movies here yet</strong></p><p>Tap + to add the last film you saw.</p></div>`; return; }
-  list.innerHTML=movies.map(m=>`
+  list.innerHTML=movies.map(m=>{
+    const dtitle=m.title||(m.unseen?'Unseen Screening':'(untitled)');
+    return `
     <div class="card movie-card">
-      <div class="poster">${m.poster?`<img src="${esc(m.poster)}" alt="">`:'🎞️'}</div>
+      <div class="poster">${m.poster?`<img src="${esc(m.poster)}" alt="">`:(m.unseen?'🎭':'🎞️')}</div>
       <div class="movie-main">
-        <div class="movie-title">${esc(m.title)}</div>
+        <div class="movie-title">${esc(dtitle)}</div>
         <div class="movie-meta"><span>${fmtDate(m.date)}</span>${m.runtime?`<span>· ${fmtHours(m.runtime)}</span>`:''}${m.theater?`<span>· ${esc(m.theater)}</span>`:''}</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${m.atHome?'<span class="badge home">Home</span>':`<span class="badge fmt">${esc(m.format)}</span>`}${m.rating?`<span class="stars">${starStr(m.rating)}</span>`:''}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${m.unseen?'<span class="badge unseen">🎭 Unseen</span>':''}${m.atHome?'<span class="badge home">Home</span>':`<span class="badge fmt">${esc(m.format)}</span>`}${isAList(m)?'<span class="badge alist">A-List</span>':''}${m.rating?`<span class="stars">${starStr(m.rating)}</span>`:''}</div>
+        ${(m.unseen&&m.guess)?`<div class="movie-notes" style="font-style:normal">Guessed: ${esc(m.guess)}</div>`:''}
+        ${(m.unseen&&!m.title)?`<div class="movie-value" style="color:var(--text-dim)">Not revealed yet. Tap Edit to add the movie.</div>`:''}
         ${(m.value&&!m.atHome)?`<div class="movie-value">${money(m.value)} ticket value</div>`:''}
         ${m.notes?`<div class="movie-notes">"${esc(m.notes)}"</div>`:''}
         <div class="card-actions"><button class="mini-btn" onclick="editMovie('${m.id}')">Edit</button><button class="mini-btn go" onclick="toggleHome('${m.id}')">${m.atHome?'→ Theater':'→ Home'}</button><button class="mini-btn danger" onclick="deleteMovie('${m.id}')">Delete</button></div>
       </div>
-    </div>`).join('');
+    </div>`;}).join('');
 }
 
 function renderWatch(){
   const list=document.getElementById('watchList');
   if(!state.watchlist.length){ list.innerHTML=`<div class="empty-state"><div class="big">📌</div><p><strong>Watchlist is empty</strong></p><p>Add movies you want to catch in theaters.</p><button class="btn" style="max-width:240px;margin:16px auto 0" onclick="openAddWatch()">+ Add a movie</button></div>`; return; }
   list.innerHTML=state.watchlist.map(w=>`<div class="card" style="display:flex;align-items:center;gap:12px"><div style="font-size:22px">🍿</div><div style="flex:1;font-weight:600">${esc(w.title)}</div><button class="mini-btn go" onclick="markSeen('${w.id}')">Saw it</button><button class="mini-btn danger" onclick="deleteWatch('${w.id}')">✕</button></div>`).join('')+`<button class="btn secondary" style="margin-top:6px" onclick="openAddWatch()">+ Add to watchlist</button>`;
+}
+
+/* ---------- Theaters ---------- */
+function findTheater(name){ return state.theaters.find(t=>t.name.toLowerCase()===(name||'').toLowerCase()); }
+function theaterMovieCount(name){ const k=(name||'').toLowerCase(); return state.movies.filter(m=>(m.theater||'').toLowerCase()===k).length; }
+function allTheaterNames(){ const names=new Map(); state.theaters.forEach(t=>names.set(t.name.toLowerCase(),t.name)); state.movies.forEach(m=>{ if(m.theater){ const k=m.theater.toLowerCase(); if(!names.has(k))names.set(k,m.theater); } }); return [...names.values()]; }
+function populateTheaterList(){ const dl=document.getElementById('theaterList'); if(dl)dl.innerHTML=allTheaterNames().map(n=>`<option value="${esc(n)}">`).join(''); }
+function addTheater(){ const inp=document.getElementById('newTheater'); const name=(inp.value||'').trim(); if(!name){ toast('Type a theater name'); return; } if(findTheater(name)){ toast('Already on your list'); return; } state.theaters.push({id:uid(),name,favorite:false}); save(); inp.value=''; renderTheaters(); toast('Theater added'); }
+function toggleFavTheater(name){ let t=findTheater(name); if(!t){ t={id:uid(),name,favorite:false}; state.theaters.push(t); } t.favorite=!t.favorite; save(); renderTheaters(); }
+function deleteTheater(name){ const t=findTheater(name); if(!t)return; if(!confirm('Remove '+name+' from your theaters? Your logged movies stay.'))return; state.theaters=state.theaters.filter(x=>x.id!==t.id); save(); renderTheaters(); }
+function renderTheaters(){
+  const body=document.getElementById('theaterBody');
+  let names=allTheaterNames().map(n=>{ const t=findTheater(n); return { name:n, fav:!!(t&&t.favorite), saved:!!t, count:theaterMovieCount(n) }; });
+  names.sort((a,b)=> (b.fav-a.fav) || (b.count-a.count) || a.name.localeCompare(b.name));
+  let html=`<div class="card" style="display:flex;gap:8px;align-items:center;margin-bottom:14px"><input id="newTheater" placeholder="Add a theater (e.g. AMC Mission Valley)" style="flex:1" onkeydown="if(event.key==='Enter')addTheater()"><button class="btn small" style="width:auto;padding:0 18px" onclick="addTheater()">Add</button></div>`;
+  if(!names.length){ html+=`<div class="empty-state"><div class="big">🎦</div><p><strong>No theaters yet</strong></p><p>Add your regular spots, or they'll appear here as you log movies.</p></div>`; }
+  else { html+=names.map(t=>{ const safe=t.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<div class="card" style="display:flex;align-items:center;gap:12px"><span onclick="toggleFavTheater('${safe}')" style="font-size:23px;cursor:pointer;color:${t.fav?'var(--gold)':'var(--text-faint)'}">${t.fav?'★':'☆'}</span><div style="flex:1"><div style="font-weight:700">${esc(t.name)}</div><div style="color:var(--text-dim);font-size:12.5px">${t.count} movie${t.count!==1?'s':''} logged${t.fav?' · favorite':''}</div></div>${t.saved?`<button class="mini-btn danger" onclick="deleteTheater('${safe}')">✕</button>`:''}</div>`; }).join(''); }
+  body.innerHTML=html;
 }
 
 /* ---------- Letterboxd import ---------- */
