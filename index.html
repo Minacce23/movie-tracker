@@ -157,6 +157,7 @@
       <small class="hint" style="margin-bottom:10px">On Letterboxd: Settings → Data → Export your data. Unzip it and pick <strong>diary.csv</strong> below. I'll bring in each film with your rating and date, and (if your TMDB key is set) add runtimes and posters. Note: Letterboxd logs at-home viewing too, so imported films are tagged "Home" until you mark them as a theater trip.</small>
       <label class="btn small secondary" style="display:block;text-align:center;cursor:pointer;margin-bottom:0">Choose diary.csv<input type="file" id="lbFile" accept=".csv" style="display:none" onchange="importLetterboxd(event)"></label>
       <div id="lbProgress" style="margin-top:10px;font-size:13px;color:var(--text-dim)"></div>
+      <button class="btn small secondary" style="margin-top:12px;color:var(--red)" onclick="removeImported()">Remove all imported movies</button>
     </div>
 
     <div class="section-title">Your data</div>
@@ -526,13 +527,20 @@ async function importLetterboxd(e){
   if(!confirm(`Found ${entries.length} films in your Letterboxd diary.\n\nImport them all? They'll be tagged "Home" until you mark each as a theater trip.`)){ e.target.value=''; prog.textContent=''; return; }
 
   const haveKey=!!tmdbKey();
-  let added=0, skipped=0;
+  let added=0, skipped=0, enriched=0;
   for(let n=0;n<entries.length;n++){
     const en=entries[n];
     prog.innerHTML=`<span class="spin"></span> Importing ${n+1} / ${entries.length} — ${esc(en.title)}`;
-    // dedupe by title + date
-    if(state.movies.some(m=>m.title.toLowerCase()===en.title.toLowerCase() && m.date===en.date)){ skipped++; continue; }
-    const movie={ id:uid(), title:en.title, year:en.year, date:en.date||new Date().toISOString().slice(0,10), format:'Standard', theater:'', value:0, runtime:0, rating:en.rating, notes:'', poster:'', atHome:true };
+    // dedupe by title + date; if it already exists but has no runtime, enrich it
+    const existing=state.movies.find(m=>m.title.toLowerCase()===en.title.toLowerCase() && m.date===en.date);
+    if(existing){
+      if(haveKey && !existing.runtime){
+        try{ const results=await tmdbSearch(en.title, en.year); if(results.length){ const best=results[0]; if(!existing.poster)existing.poster=posterUrl(best.poster_path,'w185'); try{ const d=await tmdbDetails(best.id); if(d.runtime)existing.runtime=d.runtime; }catch(_){} } }catch(_){}
+        await new Promise(r=>setTimeout(r,120)); enriched++;
+      } else skipped++;
+      continue;
+    }
+    const movie={ id:uid(), title:en.title, year:en.year, date:en.date||new Date().toISOString().slice(0,10), format:'Standard', theater:'', value:0, runtime:0, rating:en.rating, notes:'', poster:'', atHome:true, imported:true };
     if(haveKey){
       try{
         const results=await tmdbSearch(en.title, en.year);
@@ -547,11 +555,13 @@ async function importLetterboxd(e){
   // sort newest first
   state.movies.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   save();
-  prog.innerHTML=`Done. Imported ${added} film${added!==1?'s':''}${skipped?`, skipped ${skipped} already present`:''}.${haveKey?'':' Add a TMDB key and re-import to get runtimes and posters.'}`;
+  prog.innerHTML=`Done. Imported ${added} film${added!==1?'s':''}${enriched?`, updated ${enriched} with runtimes`:''}${skipped?`, skipped ${skipped} already complete`:''}.${haveKey?'':' Add a TMDB key and re-import to get runtimes and posters.'}`;
   toast(`Imported ${added} films from Letterboxd`);
   e.target.value='';
   buildFilters(); renderMovies(); renderDash();
 }
+
+function removeImported(){ const isImp=m=>m.imported||m.atHome; const n=state.movies.filter(isImp).length; if(!n){ toast('No imported movies to remove'); return; } if(!confirm('Remove all '+n+' imported / Home movie(s)? Theater movies you added by hand will stay.'))return; state.movies=state.movies.filter(m=>!isImp(m)); save(); buildFilters(); renderMovies(); renderDash(); toast('Removed '+n+' movies'); }
 
 /* ---------- Settings / data ---------- */
 function fillSettings(){ document.getElementById('setFee').value=state.settings.fee; document.getElementById('setSince').value=state.settings.since; document.getElementById('setMax').value=state.settings.maxWeek; document.getElementById('setTmdb').value=state.settings.tmdbKey||''; }
