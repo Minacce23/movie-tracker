@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>My Movie Tracker</title>
+<style>
+  :root {
+    --bg: #060608; --bg-card: #16161a; --bg-card-2: #1f1f25;
+    --gold: #e8b339; --red: #e23b4e; --red-deep: #7d1a26; --green: #3ad16f; --orange: #f0992e;
+    --text: #f4f1ea; --text-dim: #9b94ad; --text-faint: #5e5870; --border: #26262e; --shadow: rgba(0,0,0,.5);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.4; padding-bottom: 86px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 14px 16px 4px; }
+  .icon-btn { width: 42px; height: 42px; border-radius: 50%; flex: 0 0 auto; background: var(--bg-card); border: 1px solid var(--border); color: var(--red); font-size: 19px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .icon-btn:active { background: var(--bg-card-2); }
+  .icon-btn.add { background: var(--red); color: #fff; border: none; box-shadow: 0 4px 14px rgba(226,59,78,.4); }
+  .period-pill { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 24px; padding: 10px 14px; font-weight: 700; color: var(--red); font-size: 15px; }
+  .period-pill .arrow { color: var(--text-dim); font-size: 17px; cursor: pointer; padding: 0 4px; }
+  .period-pill .arrow:active { color: var(--text); }
+  .page-title { font-size: 34px; font-weight: 800; letter-spacing: -.5px; padding: 6px 16px 14px; margin: 0; }
+
+  .view { display: none; padding: 0 16px; }
+  .view.active { display: block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); margin: 4px 2px 12px; font-weight: 700; }
+
+  .hero { border-radius: 20px; padding: 22px; margin-bottom: 16px; position: relative; overflow: hidden; background: linear-gradient(145deg, var(--red-deep) 0%, #2a1015 60%, #16080b 100%); border: 1px solid rgba(226,59,78,.3); box-shadow: 0 6px 22px var(--shadow); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .hero .h-label { color: rgba(255,255,255,.7); font-size: 15px; font-weight: 600; }
+  .hero .h-amount { font-size: 40px; font-weight: 800; letter-spacing: -1px; margin-top: 6px; line-height: 1; }
+  .hero .h-note { color: rgba(255,255,255,.6); font-size: 12.5px; margin-top: 8px; }
+  .ring { flex: 0 0 auto; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 15px; box-shadow: 0 3px 12px var(--shadow); }
+  .tile .t-head { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .tile .t-head .ti { font-size: 16px; }
+  .tile .t-val { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
+  .tile.green .t-head { color: var(--green); } .tile.orange .t-head { color: var(--orange); } .tile.red .t-head { color: var(--red); } .tile.gold .t-head { color: var(--gold); }
+
+  .week-card { margin-top: 14px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-dim); margin-bottom: 7px; }
+  .progress-bar { height: 12px; background: var(--bg-card-2); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--red)); border-radius: 8px; transition: width .4s ease; }
+  .insight-text { font-size: 14px; line-height: 1.7; color: var(--text-dim); } .insight-text strong { color: var(--text); }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 15px; margin-bottom: 12px; box-shadow: 0 3px 12px var(--shadow); }
+  .movie-card { display: flex; gap: 13px; align-items: flex-start; }
+  .poster { width: 50px; height: 70px; border-radius: 9px; flex: 0 0 auto; background: linear-gradient(150deg, var(--bg-card-2), #101015); display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px solid var(--border); overflow: hidden; }
+  .poster img { width: 100%; height: 100%; object-fit: cover; }
+  .movie-main { flex: 1; min-width: 0; }
+  .movie-title { font-weight: 700; font-size: 16.5px; margin: 0 0 2px; }
+  .movie-meta { color: var(--text-dim); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 2px 8px; margin-bottom: 6px; }
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; }
+  .badge.fmt { background: rgba(232,179,57,.14); color: var(--gold); border: 1px solid rgba(232,179,57,.3); }
+  .badge.home { background: rgba(155,148,173,.14); color: var(--text-dim); border: 1px solid var(--border); }
+  .stars { color: var(--gold); font-size: 14px; letter-spacing: 1px; } .stars .empty { color: var(--text-faint); } .stars .half { color: var(--gold); }
+  .movie-notes { color: var(--text-dim); font-size: 13px; margin-top: 6px; font-style: italic; }
+  .movie-value { font-size: 12.5px; color: var(--green); font-weight: 600; margin-top: 4px; }
+  .card-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .mini-btn { background: var(--bg-card-2); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 9px; cursor: pointer; }
+  .mini-btn:active { background: #2b2b34; } .mini-btn.danger { color: var(--red); } .mini-btn.go { color: var(--gold); }
+
+  .empty-state { text-align: center; color: var(--text-faint); padding: 50px 20px; }
+  .empty-state .big { font-size: 44px; margin-bottom: 10px; opacity: .7; } .empty-state p { margin: 4px 0; font-size: 14px; }
+
+  label.field { display: block; margin-bottom: 13px; }
+  label.field .lt { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 5px; font-weight: 600; }
+  input, select, textarea { width: 100%; background: var(--bg-card-2); border: 1px solid var(--border); color: var(--text); border-radius: 11px; padding: 12px 13px; font-size: 16px; font-family: inherit; outline: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+  textarea { resize: vertical; min-height: 64px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .star-pick { display: flex; gap: 6px; font-size: 32px; }
+  .star-pick span { cursor: pointer; color: var(--text-faint); transition: transform .1s; }
+  .star-pick span.on { color: var(--gold); } .star-pick span:active { transform: scale(1.25); }
+  .btn { width: 100%; background: linear-gradient(135deg, var(--red), #b32338); color: #fff; border: none; border-radius: 13px; padding: 15px; font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 16px rgba(226,59,78,.3); }
+  .btn:active { transform: scale(.98); }
+  .btn.secondary { background: var(--bg-card-2); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
+  .btn.small { padding: 11px; font-size: 14px; }
+  small.hint { color: var(--text-faint); font-size: 12px; display: block; margin-top: 4px; }
+  a { color: var(--gold); }
+
+  /* TMDB search */
+  .tmdb-search-row { display: flex; gap: 8px; margin-bottom: 13px; }
+  .tmdb-search-row input { flex: 1; }
+  .tmdb-find { flex: 0 0 auto; width: auto; padding: 0 16px; background: var(--bg-card-2); color: var(--gold); border: 1px solid var(--border); border-radius: 11px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .tmdb-results { margin: -4px 0 13px; max-height: 280px; overflow-y: auto; }
+  .tmdb-res { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+  .tmdb-res:active, .tmdb-res:hover { background: var(--bg-card-2); border-color: var(--border); }
+  .tmdb-res img, .tmdb-res .ph { width: 38px; height: 54px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--bg-card-2); display: flex; align-items: center; justify-content: center; }
+  .tmdb-res .ti { font-weight: 600; font-size: 14px; } .tmdb-res .yr { color: var(--text-dim); font-size: 12px; }
+  .selected-chip { display: flex; align-items: center; gap: 10px; background: var(--bg-card-2); border: 1px solid rgba(58,209,111,.35); border-radius: 11px; padding: 8px 10px; margin-bottom: 13px; }
+  .selected-chip img { width: 34px; height: 48px; border-radius: 5px; object-fit: cover; }
+  .selected-chip .x { margin-left: auto; color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 0 6px; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(4,3,8,.74); z-index: 50; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(3px); }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--bg); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; border-radius: 22px 22px 0 0; border: 1px solid var(--border); border-bottom: none; padding: 8px 18px 28px; animation: slideUp .28s cubic-bezier(.2,.8,.3,1); }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: none; } }
+  .modal-handle { width: 42px; height: 5px; background: var(--border); border-radius: 3px; margin: 8px auto 16px; }
+  .modal h2 { margin: 0 0 16px; font-size: 19px; }
+
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+  .chip { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim); padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  .chip.active { background: var(--red); color: #fff; border-color: var(--red); }
+
+  nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 45; background: rgba(16,16,20,.95); backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); }
+  nav button { background: none; border: none; color: var(--text-faint); font-size: 10.5px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; flex: 1; padding: 4px 0; }
+  nav button .ic { font-size: 21px; line-height: 1; } nav button.active { color: var(--red); }
+
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--bg-card-2); color: var(--text); border: 1px solid var(--border); padding: 12px 20px; border-radius: 30px; font-size: 14px; font-weight: 600; z-index: 60; opacity: 0; transition: all .3s; box-shadow: 0 6px 20px var(--shadow); pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--text-faint); border-top-color: var(--gold); border-radius: 50%; animation: rot .7s linear infinite; vertical-align: -2px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="icon-btn" onclick="switchView('settings')">⚙️</button>
+    <div class="period-pill"><span class="arrow" onclick="stepPeriod(-1)">‹</span><span id="periodLabel">All Time</span><span class="arrow" onclick="stepPeriod(1)">›</span></div>
+    <button class="icon-btn add" onclick="openAdd()">+</button>
+  </div>
+  <h1 class="page-title" id="pageTitle">Home</h1>
+
+  <section class="view active" id="view-home"><div id="dashBody"></div></section>
+
+  <section class="view" id="view-movies"><div class="filter-bar" id="movieFilters"></div><div id="movieList"></div></section>
+
+  <section class="view" id="view-watchlist"><div class="section-title">Want to see</div><div id="watchList"></div></section>
+
+  <section class="view" id="view-settings">
+    <div class="section-title">A-List</div>
+    <div class="card">
+      <label class="field"><span class="lt">AMC A-List monthly cost ($)</span><input type="number" id="setFee" step="0.01" inputmode="decimal"></label>
+      <label class="field"><span class="lt">Member since</span><input type="date" id="setSince"></label>
+      <label class="field"><span class="lt">Movies allowed per week</span><input type="number" id="setMax" inputmode="numeric"></label>
+      <button class="btn small" onclick="saveSettings()">Save A-List settings</button>
+    </div>
+
+    <div class="section-title">Movie database (TMDB)</div>
+    <div class="card">
+      <small class="hint" style="margin-bottom:10px">Add a free TMDB key to auto-fill runtime and posters when you log a movie. Get one in ~2 min at <a href="https://www.themoviedb.org/signup" target="_blank">themoviedb.org</a> → Settings → API → request a key (choose Developer, personal use). Paste the <strong>API Key (v3 auth)</strong> below.</small>
+      <label class="field"><span class="lt">TMDB API key</span><input type="text" id="setTmdb" placeholder="paste key here" autocomplete="off"></label>
+      <div class="row2"><button class="btn small secondary" onclick="testTmdb()">Test key</button><button class="btn small" onclick="saveTmdb()">Save key</button></div>
+    </div>
+
+    <div class="section-title">Import from Letterboxd</div>
+    <div class="card">
+      <small class="hint" style="margin-bottom:10px">On Letterboxd: Settings → Data → Export your data. Unzip it and pick <strong>diary.csv</strong> below. I'll bring in each film with your rating and date, and (if your TMDB key is set) add runtimes and posters. Note: Letterboxd logs at-home viewing too, so imported films are tagged "Home" until you mark them as a theater trip.</small>
+      <label class="btn small secondary" style="display:block;text-align:center;cursor:pointer;margin-bottom:0">Choose diary.csv<input type="file" id="lbFile" accept=".csv" style="display:none" onchange="importLetterboxd(event)"></label>
+      <div id="lbProgress" style="margin-top:10px;font-size:13px;color:var(--text-dim)"></div>
+    </div>
+
+    <div class="section-title">Your data</div>
+    <div class="card">
+      <small class="hint" style="margin-bottom:12px">Your data lives only on this device, in this browser. Back it up here.</small>
+      <button class="btn small secondary" style="margin-bottom:10px" onclick="exportData()">Export backup (.json)</button>
+      <label class="btn small secondary" style="display:block;text-align:center;cursor:pointer;margin-bottom:0">Import backup<input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)"></label>
+    </div>
+  </section>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="modalTitle">Log a movie</h2>
+    <input type="hidden" id="editId"><input type="hidden" id="entryMode" value="seen"><input type="hidden" id="fPoster"><input type="hidden" id="fAtHome" value="0">
+
+    <div id="watchTitleWrap" style="display:none">
+      <label class="field"><span class="lt">Movie title</span><input type="text" id="fTitleWatch" placeholder="e.g. Dune: Part Two" autocomplete="off"></label>
+    </div>
+
+    <div id="seenFields">
+      <div class="tmdb-search-row">
+        <input type="text" id="fTitle" placeholder="Movie title" autocomplete="off">
+        <button class="tmdb-find" onclick="doTmdbSearch()" id="tmdbFindBtn">Find</button>
+      </div>
+      <div class="tmdb-results" id="tmdbResults"></div>
+      <div id="selectedWrap"></div>
+
+      <div class="row2">
+        <label class="field"><span class="lt">Date seen</span><input type="date" id="fDate"></label>
+        <label class="field"><span class="lt">Format</span><select id="fFormat"><option>Standard</option><option>IMAX</option><option>Dolby Cinema</option><option>Prime / Large</option><option>RealD 3D</option><option>Other</option></select></label>
+      </div>
+      <div class="row2">
+        <label class="field"><span class="lt">Regular ticket price ($)</span><input type="number" id="fValue" step="0.01" inputmode="decimal" placeholder="18.50"></label>
+        <label class="field"><span class="lt">Runtime (minutes)</span><input type="number" id="fRuntime" inputmode="numeric" placeholder="120"></label>
+      </div>
+      <label class="field"><span class="lt">Theater (optional)</span><input type="text" id="fTheater" placeholder="e.g. AMC Mission Valley" autocomplete="off"></label>
+      <label class="field"><span class="lt">Your rating</span><div class="star-pick" id="starPick"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div></label>
+      <label class="field"><span class="lt">Notes / quick review (optional)</span><textarea id="fNotes" placeholder="What did you think?"></textarea></label>
+    </div>
+
+    <button class="btn" onclick="saveMovie()">Save</button>
+    <button class="btn secondary" style="margin-top:10px" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<nav>
+  <button class="active" data-view="home" onclick="switchView('home')"><span class="ic">🏠</span>Home</button>
+  <button data-view="movies" onclick="switchView('movies')"><span class="ic">🎞️</span>Movies</button>
+  <button data-view="watchlist" onclick="switchView('watchlist')"><span class="ic">📌</span>Watchlist</button>
+  <button data-view="settings" onclick="switchView('settings')"><span class="ic">⚙️</span>Settings</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'movieTracker_v2';
+const defaultState = { movies: [], watchlist: [], settings: { fee: 27.99, since: '', maxWeek: 4, tmdbKey: '' } };
+let state = load();
+let pickedStars = 0, currentFilter = 'all', periodIndex = 0, selectedTmdb = null;
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem('movieTracker_v1');
+    if (!raw) return clone(defaultState);
+    const s = JSON.parse(raw);
+    s.movies = s.movies || []; s.watchlist = s.watchlist || [];
+    s.settings = Object.assign({}, defaultState.settings, s.settings || {});
+    return s;
+  } catch(e) { return clone(defaultState); }
+}
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function money(n) { const v = Math.round(n*100)/100; return (v<0?'-$':'$') + Math.abs(v).toFixed(2); }
+function esc(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(d){ if(!d) return ''; return new Date(d+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function fmtHours(mins){ const h=Math.floor(mins/60), m=Math.round(mins%60); return h+'h '+(m<10?'0':'')+m+'m'; }
+function starStr(n){ n=n||0; const full=Math.floor(n); const half=(n-full)>=0.5; let s=''; for(let i=0;i<full;i++)s+='★'; if(half)s+='<span class="half">⯨</span>'; const empty=5-full-(half?1:0); for(let i=0;i<empty;i++)s+='<span class="empty">★</span>'; return s.replace('⯨','½'); }
+
+/* ---------- Period ---------- */
+function monthList(){ const set=[...new Set(state.movies.map(m=>(m.date||'').slice(0,7)).filter(Boolean))]; set.sort((a,b)=>b.localeCompare(a)); return set; }
+function currentPeriod(){ const months=monthList(); if(periodIndex===0||!months.length) return {mode:'all'}; return {mode:'month', ym:months[Math.min(periodIndex-1,months.length-1)]}; }
+function periodLabel(p){ if(p.mode==='all')return 'All Time'; const [y,m]=p.ym.split('-'); return new Date(y,m-1,1).toLocaleDateString(undefined,{month:'long',year:'numeric'}); }
+function stepPeriod(dir){ const max=monthList().length; periodIndex=Math.min(max,Math.max(0,periodIndex+dir)); document.getElementById('periodLabel').textContent=periodLabel(currentPeriod()); if(document.getElementById('view-home').classList.contains('active'))renderDash(); }
+function monthsSince(dateStr){ if(!dateStr)return 1; const start=new Date(dateStr+'T00:00:00'),now=new Date(); let months=(now.getFullYear()-start.getFullYear())*12+(now.getMonth()-start.getMonth()); if(now.getDate()>=start.getDate())months+=1; return Math.max(1,months); }
+function isSameWeek(dateStr){ const d=new Date(dateStr+'T00:00:00'),now=new Date();const day=(now.getDay()+6)%7;const mon=new Date(now);mon.setDate(now.getDate()-day);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return d>=mon&&d<=sun; }
+
+/* ---------- Views ---------- */
+function switchView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  document.getElementById('pageTitle').textContent={home:'Home',movies:'My Movies',watchlist:'Watchlist',settings:'Settings'}[v];
+  document.querySelector('.period-pill').style.visibility = v==='home'?'visible':'hidden';
+  if(v==='home')renderDash(); if(v==='movies'){buildFilters();renderMovies();} if(v==='watchlist')renderWatch(); if(v==='settings')fillSettings();
+  window.scrollTo(0,0);
+}
+let toastT;
+function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400); }
+
+/* ---------- Dashboard ---------- */
+function renderDash(){
+  const p=currentPeriod(); const fee=state.settings.fee||0; let movies,fees,periodMonths;
+  // Only theater movies count toward A-List economics
+  const theaterAll = state.movies.filter(m=>!m.atHome);
+  if(p.mode==='all'){ movies=theaterAll.slice(); periodMonths=monthsSince(state.settings.since); fees=fee*periodMonths; }
+  else { movies=theaterAll.filter(m=>(m.date||'').slice(0,7)===p.ym); periodMonths=1; fees=fee; }
+
+  const ticketValue=movies.reduce((s,x)=>s+(x.value||0),0);
+  const count=movies.length;
+  const totalMins=movies.reduce((s,x)=>s+(x.runtime||0),0);
+  const hours=totalMins/60;
+  const net=ticketValue-fees;
+  const recoverPct=fees>0?Math.min(100,Math.round((ticketValue/fees)*100)):0;
+  const costPerMovie=count?fees/count:0;
+  const costPerHour=hours>0?fees/hours:0;
+  const thisWeek=theaterAll.filter(x=>isSameWeek(x.date)).length;
+  const maxWeek=state.settings.maxWeek||4;
+
+  const r=38,circ=2*Math.PI*r,off=circ*(1-recoverPct/100);
+  const ringColor=recoverPct>=100?'var(--green)':'#ffffff';
+
+  let html=`
+    <div class="hero">
+      <div>
+        <div class="h-label">A-List Savings So Far</div>
+        <div class="h-amount" style="color:${net>=0?'#fff':'#ffd2d8'}">${money(Math.max(0,net))}</div>
+        <div class="h-note">${net>=0?`${money(ticketValue)} value vs ${money(fees)} in fees`:`${money(-net)} to break even (${money(ticketValue)} of ${money(fees)})`}</div>
+      </div>
+      <svg class="ring" width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="9"/>
+        <circle cx="50" cy="50" r="${r}" fill="none" stroke="${ringColor}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 50 50)"/>
+        <text x="50" y="44" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="10" font-weight="600">VALUE</text>
+        <text x="50" y="60" text-anchor="middle" fill="#fff" font-size="19" font-weight="800">${recoverPct}%</text>
+      </svg>
+    </div>
+    <div class="tiles">
+      <div class="tile green"><div class="t-head"><span class="ti">🎟️</span>Ticket Value</div><div class="t-val">${money(ticketValue)}</div></div>
+      <div class="tile green"><div class="t-head"><span class="ti">💳</span>${p.mode==='all'?'All Fees':'Month Fee'}</div><div class="t-val">${money(fees)}</div></div>
+      <div class="tile orange"><div class="t-head"><span class="ti">＄</span>Cost / Movie</div><div class="t-val">${count?money(costPerMovie):'–'}</div></div>
+      <div class="tile orange"><div class="t-head"><span class="ti">⏳</span>Cost / Hour</div><div class="t-val">${costPerHour?money(costPerHour):'–'}</div></div>
+      <div class="tile red"><div class="t-head"><span class="ti">🎬</span>Movies</div><div class="t-val">${count}</div></div>
+      <div class="tile red"><div class="t-head"><span class="ti">🕐</span>Hours Watched</div><div class="t-val">${totalMins?fmtHours(totalMins):'–'}</div></div>
+    </div>
+    <div class="card week-card">
+      <div class="progress-label"><span>This week's movies</span><span>${thisWeek} / ${maxWeek}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,(thisWeek/maxWeek)*100)}%"></div></div>
+      <small class="hint" style="margin-top:8px">${thisWeek>=maxWeek?"Full weekly allowance used 🎉":(maxWeek-thisWeek)+' more included this week'}</small>
+    </div>`;
+
+  const rated=movies.filter(x=>x.rating); const avgRating=rated.length?(rated.reduce((s,x)=>s+x.rating,0)/rated.length):0;
+  const fmtCount={}; movies.forEach(x=>fmtCount[x.format]=(fmtCount[x.format]||0)+1); const topFmt=Object.entries(fmtCount).sort((a,b)=>b[1]-a[1])[0];
+  const breakEven=(count&&ticketValue)?Math.ceil(fee/(ticketValue/count)):0;
+  if(count){
+    html+=`<div class="card"><div class="section-title" style="margin:0 0 10px">Insights ${p.mode==='all'?'(all time)':'('+periodLabel(p)+')'}</div><div class="insight-text">
+      ${avgRating?`Average rating <strong>${avgRating.toFixed(1)} ★</strong>.<br>`:''}
+      ${topFmt?`Most-watched format <strong>${esc(topFmt[0])}</strong> (${topFmt[1]}).<br>`:''}
+      ${breakEven?`Need about <strong>${breakEven} movie${breakEven>1?'s':''}/month</strong> to break even on the ${money(fee)} pass.`:''}
+    </div></div>`;
+  } else {
+    html+=`<div class="empty-state" style="padding:30px 20px"><div class="big">🍿</div><p>No theater movies logged ${p.mode==='all'?'yet':'this month'}.</p><p>Tap + to add one.</p></div>`;
+  }
+  document.getElementById('dashBody').innerHTML=html;
+}
+
+/* ---------- TMDB ---------- */
+function tmdbKey(){ return (state.settings.tmdbKey||'').trim(); }
+async function tmdbSearch(query, year){
+  const key=tmdbKey(); if(!key) throw new Error('nokey');
+  let url=`https://api.themoviedb.org/3/search/movie?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&include_adult=false`;
+  if(year) url+=`&year=${year}`;
+  const res=await fetch(url); if(!res.ok) throw new Error('http'+res.status);
+  const data=await res.json(); return data.results||[];
+}
+async function tmdbDetails(id){
+  const key=tmdbKey(); const res=await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${encodeURIComponent(key)}`);
+  if(!res.ok) throw new Error('http'+res.status); return await res.json();
+}
+function posterUrl(path, size){ return path?`https://image.tmdb.org/t/p/${size||'w185'}${path}`:''; }
+
+async function testTmdb(){
+  const key=document.getElementById('setTmdb').value.trim();
+  if(!key){ toast('Paste a key first'); return; }
+  toast('<span class="spin"></span> Testing...');
+  try{
+    const res=await fetch(`https://api.themoviedb.org/3/movie/693134?api_key=${encodeURIComponent(key)}`);
+    if(res.ok){ toast('Key works ✓'); } else if(res.status===401){ toast('Key rejected (401). Double-check it.'); } else { toast('TMDB error '+res.status); }
+  }catch(e){ toast('Network error reaching TMDB'); }
+}
+function saveTmdb(){ state.settings.tmdbKey=document.getElementById('setTmdb').value.trim(); save(); toast('TMDB key saved'); }
+
+async function doTmdbSearch(){
+  const q=document.getElementById('fTitle').value.trim();
+  if(!q){ toast('Type a title first'); return; }
+  if(!tmdbKey()){ toast('Add your TMDB key in Settings first'); switchAfterModal('settings'); return; }
+  const btn=document.getElementById('tmdbFindBtn'); btn.innerHTML='<span class="spin"></span>';
+  const box=document.getElementById('tmdbResults');
+  try{
+    const results=(await tmdbSearch(q)).slice(0,6);
+    if(!results.length){ box.innerHTML='<div style="padding:8px;color:var(--text-faint);font-size:13px">No matches. Check spelling or enter details manually.</div>'; }
+    else { box.innerHTML=results.map(r=>{
+      const yr=(r.release_date||'').slice(0,4); const p=posterUrl(r.poster_path,'w92');
+      return `<div class="tmdb-res" onclick="selectTmdb(${r.id})">${p?`<img src="${p}">`:'<div class="ph">🎬</div>'}<div><div class="ti">${esc(r.title)}</div><div class="yr">${yr||''}</div></div></div>`;
+    }).join(''); }
+  }catch(e){ box.innerHTML=''; toast(e.message==='nokey'?'Add your TMDB key in Settings':'TMDB lookup failed'); }
+  btn.innerHTML='Find';
+}
+async function selectTmdb(id){
+  document.getElementById('tmdbResults').innerHTML='<div style="padding:8px;color:var(--text-faint);font-size:13px"><span class="spin"></span> Loading details...</div>';
+  try{
+    const d=await tmdbDetails(id);
+    document.getElementById('fTitle').value=d.title||document.getElementById('fTitle').value;
+    if(d.runtime) document.getElementById('fRuntime').value=d.runtime;
+    selectedTmdb={ title:d.title, year:(d.release_date||'').slice(0,4), poster:posterUrl(d.poster_path,'w185') };
+    document.getElementById('fPoster').value=selectedTmdb.poster||'';
+    document.getElementById('tmdbResults').innerHTML='';
+    renderSelected();
+  }catch(e){ toast('Could not load details'); document.getElementById('tmdbResults').innerHTML=''; }
+}
+function renderSelected(){
+  const w=document.getElementById('selectedWrap');
+  if(!selectedTmdb){ w.innerHTML=''; return; }
+  w.innerHTML=`<div class="selected-chip">${selectedTmdb.poster?`<img src="${selectedTmdb.poster}">`:''}<div><div style="font-weight:600;font-size:14px">${esc(selectedTmdb.title)}</div><div style="color:var(--text-dim);font-size:12px">${selectedTmdb.year||''} · runtime filled from TMDB</div></div><span class="x" onclick="clearSelected()">✕</span></div>`;
+}
+function clearSelected(){ selectedTmdb=null; document.getElementById('fPoster').value=''; renderSelected(); }
+
+/* ---------- Add / edit ---------- */
+function openAdd(mode){
+  mode=mode||'seen';
+  document.getElementById('entryMode').value=mode;
+  document.getElementById('editId').value='';
+  document.getElementById('modalTitle').textContent=mode==='watch'?'Add to watchlist':'Log a movie';
+  document.getElementById('watchTitleWrap').style.display=mode==='watch'?'block':'none';
+  document.getElementById('seenFields').style.display=mode==='watch'?'none':'block';
+  document.getElementById('fTitleWatch').value='';
+  document.getElementById('fTitle').value='';
+  document.getElementById('fDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('fFormat').value='Standard';
+  document.getElementById('fTheater').value='';
+  document.getElementById('fValue').value='';
+  document.getElementById('fRuntime').value='';
+  document.getElementById('fNotes').value='';
+  document.getElementById('fPoster').value='';
+  document.getElementById('fAtHome').value='0';
+  document.getElementById('tmdbResults').innerHTML='';
+  selectedTmdb=null; renderSelected();
+  setStars(0);
+  document.getElementById('modalBg').classList.add('open');
+}
+function openAddWatch(){ openAdd('watch'); }
+function editMovie(id){
+  const m=state.movies.find(x=>x.id===id); if(!m)return;
+  document.getElementById('entryMode').value='seen';
+  document.getElementById('editId').value=id;
+  document.getElementById('modalTitle').textContent='Edit movie';
+  document.getElementById('watchTitleWrap').style.display='none';
+  document.getElementById('seenFields').style.display='block';
+  document.getElementById('fTitle').value=m.title;
+  document.getElementById('fDate').value=m.date;
+  document.getElementById('fFormat').value=m.format;
+  document.getElementById('fTheater').value=m.theater||'';
+  document.getElementById('fValue').value=m.value!=null?m.value:'';
+  document.getElementById('fRuntime').value=m.runtime||'';
+  document.getElementById('fNotes').value=m.notes||'';
+  document.getElementById('fPoster').value=m.poster||'';
+  document.getElementById('fAtHome').value=m.atHome?'1':'0';
+  document.getElementById('tmdbResults').innerHTML='';
+  selectedTmdb=m.poster?{title:m.title,year:m.year||'',poster:m.poster}:null; renderSelected();
+  setStars(m.rating||0);
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
+function switchAfterModal(v){ closeModal(); switchView(v); }
+function setStars(n){ pickedStars=n; document.querySelectorAll('#starPick span').forEach(s=>s.classList.toggle('on',parseInt(s.dataset.v)<=n)); }
+document.querySelectorAll('#starPick span').forEach(s=>s.addEventListener('click',()=>{const v=parseInt(s.dataset.v);setStars(v===pickedStars?0:v);}));
+
+function saveMovie(){
+  const mode=document.getElementById('entryMode').value;
+  if(mode==='watch'){
+    const t=document.getElementById('fTitleWatch').value.trim();
+    if(!t){ toast('Add a title first'); return; }
+    state.watchlist.unshift({id:uid(),title:t}); save(); closeModal(); renderWatch(); toast('Added to watchlist'); return;
+  }
+  const title=document.getElementById('fTitle').value.trim();
+  if(!title){ toast('Add a title first'); return; }
+  const id=document.getElementById('editId').value;
+  const data={ title, date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10), format:document.getElementById('fFormat').value, theater:document.getElementById('fTheater').value.trim(), value:parseFloat(document.getElementById('fValue').value)||0, runtime:parseInt(document.getElementById('fRuntime').value)||0, rating:pickedStars, notes:document.getElementById('fNotes').value.trim(), poster:document.getElementById('fPoster').value||'', atHome:document.getElementById('fAtHome').value==='1' };
+  if(id){ Object.assign(state.movies.find(x=>x.id===id),data); toast('Updated'); }
+  else { state.movies.unshift(Object.assign({id:uid()},data)); toast('Movie logged 🍿'); }
+  save(); closeModal();
+  periodIndex=0; document.getElementById('periodLabel').textContent='All Time';
+  buildFilters(); renderMovies(); renderDash();
+}
+function deleteMovie(id){ if(!confirm('Delete this movie from your log?'))return; state.movies=state.movies.filter(x=>x.id!==id); save(); buildFilters(); renderMovies(); renderDash(); toast('Deleted'); }
+function toggleHome(id){ const m=state.movies.find(x=>x.id===id); if(!m)return; m.atHome=!m.atHome; save(); renderMovies(); renderDash(); toast(m.atHome?'Marked as home viewing':'Marked as theater trip'); }
+
+/* ---------- Watchlist ---------- */
+function markSeen(id){ const w=state.watchlist.find(x=>x.id===id); if(!w)return; state.watchlist=state.watchlist.filter(x=>x.id!==id); save(); renderWatch(); openAdd('seen'); document.getElementById('fTitle').value=w.title; }
+function deleteWatch(id){ state.watchlist=state.watchlist.filter(x=>x.id!==id); save(); renderWatch(); }
+
+/* ---------- Movies list ---------- */
+function buildFilters(){
+  const formats=[...new Set(state.movies.map(m=>m.format))];
+  let html=`<div class="chip ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">All (${state.movies.length})</div>`;
+  html+=`<div class="chip ${currentFilter==='theater'?'active':''}" onclick="setFilter('theater')">Theater (${state.movies.filter(m=>!m.atHome).length})</div>`;
+  formats.forEach(f=>{ const n=state.movies.filter(m=>m.format===f).length; html+=`<div class="chip ${currentFilter===f?'active':''}" onclick="setFilter('${f.replace(/'/g,"\\'")}')">${f} (${n})</div>`; });
+  document.getElementById('movieFilters').innerHTML=state.movies.length?html:'';
+}
+function setFilter(f){ currentFilter=f; buildFilters(); renderMovies(); }
+function renderMovies(){
+  const list=document.getElementById('movieList');
+  let movies=state.movies.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(currentFilter==='theater') movies=movies.filter(m=>!m.atHome);
+  else if(currentFilter!=='all') movies=movies.filter(m=>m.format===currentFilter);
+  if(!movies.length){ list.innerHTML=`<div class="empty-state"><div class="big">🎬</div><p><strong>No movies here yet</strong></p><p>Tap + to add the last film you saw.</p></div>`; return; }
+  list.innerHTML=movies.map(m=>`
+    <div class="card movie-card">
+      <div class="poster">${m.poster?`<img src="${esc(m.poster)}" alt="">`:'🎞️'}</div>
+      <div class="movie-main">
+        <div class="movie-title">${esc(m.title)}</div>
+        <div class="movie-meta"><span>${fmtDate(m.date)}</span>${m.runtime?`<span>· ${fmtHours(m.runtime)}</span>`:''}${m.theater?`<span>· ${esc(m.theater)}</span>`:''}</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${m.atHome?'<span class="badge home">Home</span>':`<span class="badge fmt">${esc(m.format)}</span>`}${m.rating?`<span class="stars">${starStr(m.rating)}</span>`:''}</div>
+        ${(m.value&&!m.atHome)?`<div class="movie-value">${money(m.value)} ticket value</div>`:''}
+        ${m.notes?`<div class="movie-notes">"${esc(m.notes)}"</div>`:''}
+        <div class="card-actions"><button class="mini-btn" onclick="editMovie('${m.id}')">Edit</button><button class="mini-btn go" onclick="toggleHome('${m.id}')">${m.atHome?'→ Theater':'→ Home'}</button><button class="mini-btn danger" onclick="deleteMovie('${m.id}')">Delete</button></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderWatch(){
+  const list=document.getElementById('watchList');
+  if(!state.watchlist.length){ list.innerHTML=`<div class="empty-state"><div class="big">📌</div><p><strong>Watchlist is empty</strong></p><p>Add movies you want to catch in theaters.</p><button class="btn" style="max-width:240px;margin:16px auto 0" onclick="openAddWatch()">+ Add a movie</button></div>`; return; }
+  list.innerHTML=state.watchlist.map(w=>`<div class="card" style="display:flex;align-items:center;gap:12px"><div style="font-size:22px">🍿</div><div style="flex:1;font-weight:600">${esc(w.title)}</div><button class="mini-btn go" onclick="markSeen('${w.id}')">Saw it</button><button class="mini-btn danger" onclick="deleteWatch('${w.id}')">✕</button></div>`).join('')+`<button class="btn secondary" style="margin-top:6px" onclick="openAddWatch()">+ Add to watchlist</button>`;
+}
+
+/* ---------- Letterboxd import ---------- */
+function parseCSV(text){
+  const rows=[]; let i=0,field='',row=[],inQ=false; text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  while(i<text.length){ const c=text[i];
+    if(inQ){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; } else field+=c; }
+    else { if(c==='"')inQ=true; else if(c===','){row.push(field);field='';} else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';} else field+=c; }
+    i++;
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+async function importLetterboxd(e){
+  const file=e.target.files[0]; if(!file)return;
+  const prog=document.getElementById('lbProgress');
+  const text=await file.text();
+  const rows=parseCSV(text).filter(r=>r.length>1);
+  if(!rows.length){ prog.textContent='That file looks empty.'; return; }
+  const header=rows[0].map(h=>h.trim().toLowerCase());
+  const ix=name=>header.indexOf(name);
+  const cName=ix('name'), cYear=ix('year'), cRating=ix('rating'), cWatched=ix('watched date'), cDate=ix('date');
+  if(cName<0){ prog.textContent='This does not look like a Letterboxd diary.csv (no Name column).'; e.target.value=''; return; }
+  const entries=rows.slice(1).map(r=>({
+    title:(r[cName]||'').trim(),
+    year:cYear>=0?(r[cYear]||'').trim():'',
+    rating:cRating>=0?parseFloat(r[cRating])||0:0,
+    date:((cWatched>=0?r[cWatched]:'')||(cDate>=0?r[cDate]:'')||'').trim().slice(0,10)
+  })).filter(x=>x.title);
+  if(!entries.length){ prog.textContent='No film rows found.'; e.target.value=''; return; }
+  if(!confirm(`Found ${entries.length} films in your Letterboxd diary.\n\nImport them all? They'll be tagged "Home" until you mark each as a theater trip.`)){ e.target.value=''; prog.textContent=''; return; }
+
+  const haveKey=!!tmdbKey();
+  let added=0, skipped=0;
+  for(let n=0;n<entries.length;n++){
+    const en=entries[n];
+    prog.innerHTML=`<span class="spin"></span> Importing ${n+1} / ${entries.length} — ${esc(en.title)}`;
+    // dedupe by title + date
+    if(state.movies.some(m=>m.title.toLowerCase()===en.title.toLowerCase() && m.date===en.date)){ skipped++; continue; }
+    const movie={ id:uid(), title:en.title, year:en.year, date:en.date||new Date().toISOString().slice(0,10), format:'Standard', theater:'', value:0, runtime:0, rating:en.rating, notes:'', poster:'', atHome:true };
+    if(haveKey){
+      try{
+        const results=await tmdbSearch(en.title, en.year);
+        if(results.length){ const best=results[0]; movie.poster=posterUrl(best.poster_path,'w185');
+          try{ const d=await tmdbDetails(best.id); if(d.runtime)movie.runtime=d.runtime; }catch(_){}
+        }
+      }catch(_){}
+      await new Promise(r=>setTimeout(r,120)); // gentle pacing
+    }
+    state.movies.push(movie); added++;
+  }
+  // sort newest first
+  state.movies.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  save();
+  prog.innerHTML=`Done. Imported ${added} film${added!==1?'s':''}${skipped?`, skipped ${skipped} already present`:''}.${haveKey?'':' Add a TMDB key and re-import to get runtimes and posters.'}`;
+  toast(`Imported ${added} films from Letterboxd`);
+  e.target.value='';
+  buildFilters(); renderMovies(); renderDash();
+}
+
+/* ---------- Settings / data ---------- */
+function fillSettings(){ document.getElementById('setFee').value=state.settings.fee; document.getElementById('setSince').value=state.settings.since; document.getElementById('setMax').value=state.settings.maxWeek; document.getElementById('setTmdb').value=state.settings.tmdbKey||''; }
+function saveSettings(){ state.settings.fee=parseFloat(document.getElementById('setFee').value)||0; state.settings.since=document.getElementById('setSince').value; state.settings.maxWeek=parseInt(document.getElementById('setMax').value)||4; save(); toast('Settings saved'); }
+function exportData(){ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='movie-tracker-backup.json'; a.click(); toast('Backup downloaded'); }
+function importData(e){ const file=e.target.files[0]; if(!file)return; const r=new FileReader(); r.onload=ev=>{ try{ const data=JSON.parse(ev.target.result); if(!data.movies)throw 0; if(!confirm('Replace your current data with this backup?'))return; state=data; state.settings=Object.assign({},defaultState.settings,state.settings||{}); save(); buildFilters(); renderMovies(); renderWatch(); renderDash(); toast('Backup restored'); }catch(err){ toast('Could not read that file'); } }; r.readAsText(file); e.target.value=''; }
+
+/* ---------- Init ---------- */
+function init(){
+  document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
+  document.getElementById('periodLabel').textContent='All Time';
+  renderDash();
+}
+init();
+</script>
+</body>
+</html>
