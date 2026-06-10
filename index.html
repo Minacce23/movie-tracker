@@ -304,6 +304,7 @@ function renderDash(){
   const ringColor=recoverPct>=100?'var(--green)':'#ffffff';
 
   let html=`
+    ${!state.settings.since?`<div class="card" style="border-color:rgba(232,179,57,.45);background:rgba(232,179,57,.08);display:flex;gap:11px;align-items:center"><span style="font-size:20px">📅</span><div style="flex:1;font-size:13.5px;color:var(--text)">Set your <strong>A-List start date</strong> in Settings so these stats only count your A-List trips.</div><button class="mini-btn go" style="flex:0 0 auto" onclick="switchView('settings')">Set</button></div>`:''}
     <div class="hero">
       <div>
         <div class="h-label">A-List Savings So Far</div>
