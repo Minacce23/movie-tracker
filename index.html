@@ -150,6 +150,7 @@
     <div class="card">
       <label class="field"><span class="lt">AMC A-List monthly cost ($)</span><input type="number" id="setFee" step="0.01" inputmode="decimal"></label>
       <label class="field"><span class="lt">Member since</span><input type="date" id="setSince"></label>
+      <label class="field"><span class="lt">Typical ticket price ($)</span><input type="number" id="setAvg" step="0.01" inputmode="decimal"><small class="hint">What a normal ticket costs you. Used for savings when a movie has no price entered.</small></label>
       <label class="field"><span class="lt">Movies allowed per week</span><input type="number" id="setMax" inputmode="numeric"></label>
       <button class="btn small" onclick="saveSettings()">Save A-List settings</button>
     </div>
@@ -235,7 +236,7 @@
 
 <script>
 const STORE_KEY = 'movieTracker_v2';
-const defaultState = { movies: [], watchlist: [], theaters: [], settings: { fee: 27.99, since: '', maxWeek: 4, tmdbKey: '' } };
+const defaultState = { movies: [], watchlist: [], theaters: [], settings: { fee: 27.99, since: '', maxWeek: 4, avgTicket: 16.99, tmdbKey: '' } };
 let state = load();
 let pickedStars = 0, currentFilter = 'all', periodIndex = 0, selectedTmdb = null;
 
@@ -289,7 +290,8 @@ function renderDash(){
   if(p.mode==='all'){ movies=theaterAll.slice(); periodMonths=monthsSince(state.settings.since); fees=fee*periodMonths; }
   else { movies=theaterAll.filter(m=>(m.date||'').slice(0,7)===p.ym); periodMonths=1; fees=fee; }
 
-  const ticketValue=movies.reduce((s,x)=>s+(x.value||0),0);
+  const avgTicket=state.settings.avgTicket||0;
+  const ticketValue=movies.reduce((s,x)=>s+((x.value&&x.value>0)?x.value:avgTicket),0);
   const count=movies.length;
   const totalMins=movies.reduce((s,x)=>s+(x.runtime||0),0);
   const hours=totalMins/60;
@@ -524,7 +526,7 @@ function renderMovies(){
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${m.unseen?'<span class="badge unseen">🎭 Unseen</span>':''}${m.atHome?'<span class="badge home">Home</span>':`<span class="badge fmt">${esc(m.format)}</span>`}${isAList(m)?'<span class="badge alist">A-List</span>':''}${m.rating?`<span class="stars">${starStr(m.rating)}</span>`:''}</div>
         ${(m.unseen&&m.guess)?`<div class="movie-notes" style="font-style:normal">Guessed: ${esc(m.guess)}</div>`:''}
         ${(m.unseen&&!m.title)?`<div class="movie-value" style="color:var(--text-dim)">Not revealed yet. Tap Edit to add the movie.</div>`:''}
-        ${(m.value&&!m.atHome)?`<div class="movie-value">${money(m.value)} ticket value</div>`:''}
+        ${(()=>{ if(m.atHome) return ''; if(m.value&&m.value>0) return `<div class="movie-value">${money(m.value)} ticket value</div>`; if(isAList(m)&&state.settings.avgTicket) return `<div class="movie-value" style="color:var(--text-dim)">~${money(state.settings.avgTicket)} est. ticket value</div>`; return ''; })()}
         ${m.notes?`<div class="movie-notes">"${esc(m.notes)}"</div>`:''}
         <div class="card-actions"><button class="mini-btn" onclick="editMovie('${m.id}')">Edit</button><button class="mini-btn go" onclick="toggleHome('${m.id}')">${m.atHome?'→ Theater':'→ Home'}</button><button class="mini-btn danger" onclick="deleteMovie('${m.id}')">Delete</button></div>
       </div>
@@ -623,8 +625,8 @@ async function importLetterboxd(e){
 function removeImported(){ const isImp=m=>m.imported||m.atHome; const n=state.movies.filter(isImp).length; if(!n){ toast('No imported movies to remove'); return; } if(!confirm('Remove all '+n+' imported / Home movie(s)? Theater movies you added by hand will stay.'))return; state.movies=state.movies.filter(m=>!isImp(m)); save(); buildFilters(); renderMovies(); renderDash(); toast('Removed '+n+' movies'); }
 
 /* ---------- Settings / data ---------- */
-function fillSettings(){ document.getElementById('setFee').value=state.settings.fee; document.getElementById('setSince').value=state.settings.since; document.getElementById('setMax').value=state.settings.maxWeek; document.getElementById('setTmdb').value=state.settings.tmdbKey||''; }
-function saveSettings(){ state.settings.fee=parseFloat(document.getElementById('setFee').value)||0; state.settings.since=document.getElementById('setSince').value; state.settings.maxWeek=parseInt(document.getElementById('setMax').value)||4; save(); toast('Settings saved'); }
+function fillSettings(){ document.getElementById('setFee').value=state.settings.fee; document.getElementById('setSince').value=state.settings.since; document.getElementById('setAvg').value=state.settings.avgTicket; document.getElementById('setMax').value=state.settings.maxWeek; document.getElementById('setTmdb').value=state.settings.tmdbKey||''; }
+function saveSettings(){ state.settings.fee=parseFloat(document.getElementById('setFee').value)||0; state.settings.since=document.getElementById('setSince').value; state.settings.avgTicket=parseFloat(document.getElementById('setAvg').value)||0; state.settings.maxWeek=parseInt(document.getElementById('setMax').value)||4; save(); if(document.getElementById('view-home').classList.contains('active'))renderDash(); toast('Settings saved'); }
 function exportData(){ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='movie-tracker-backup.json'; a.click(); toast('Backup downloaded'); }
 function importData(e){ const file=e.target.files[0]; if(!file)return; const r=new FileReader(); r.onload=ev=>{ try{ const data=JSON.parse(ev.target.result); if(!data.movies)throw 0; if(!confirm('Replace your current data with this backup?'))return; state=data; state.settings=Object.assign({},defaultState.settings,state.settings||{}); save(); buildFilters(); renderMovies(); renderWatch(); renderDash(); toast('Backup restored'); }catch(err){ toast('Could not read that file'); } }; r.readAsText(file); e.target.value=''; }
 
