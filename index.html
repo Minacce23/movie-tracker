@@ -567,7 +567,21 @@ function renderTheaters(){
 }
 
 /* ---------- Studios ---------- */
-const KNOWN_STUDIOS=['A24','Blumhouse','Neon','Focus Features','Searchlight','Lionsgate','Marvel Studios','Pixar','Lucasfilm','Walt Disney','Warner Bros','Universal','Paramount','Columbia','Sony','20th Century','New Line','DreamWorks','Legendary','Annapurna','Metro-Goldwyn-Mayer','MGM','Netflix','Apple','Amazon','Plan B','Monkeypaw','Ghost House','Working Title','Miramax','STX'];
+const KNOWN_STUDIOS=[
+  /* International */
+  'Gaumont','Pathé','StudioCanal','Wild Bunch','MK2','Le Pacte','Memento Films','CG Cinéma',
+  'Studio Ghibli','Toho','Toei','Shochiku','Kadokawa','Madhouse','Production I.G','GKIDS',
+  'CJ ENM','Showbox','Barunson','Plus M Entertainment',
+  'Film4','BBC Film','Aardman','Ealing Studios','DNA Films','Hammer Films','English Breakfast',
+  'Constantin Film','X Filme','Rai Cinema','Medusa Film','El Deseo','Zentropa','Nordisk Film',
+  'Yash Raj Films','Dharma Productions','Huayi Brothers','Media Asia',
+  /* Arthouse / specialty distributors */
+  'IFC Films','Magnolia Pictures','Sony Pictures Classics','Kino Lorber','Janus Films','MUBI',
+  'Music Box Films','Strand Releasing','Cohen Media','Oscilloscope','Bleecker Street',
+  'Roadside Attractions','Well Go USA','Mongrel Media','Curzon',
+  /* Majors */
+  'A24','Blumhouse','Neon','Focus Features','Searchlight','Lionsgate','Marvel Studios','Pixar','Lucasfilm','Walt Disney','Warner Bros','Universal','Paramount','Columbia','Sony','20th Century','New Line','DreamWorks','Legendary','Annapurna','Metro-Goldwyn-Mayer','MGM','Netflix','Apple','Amazon','Plan B','Monkeypaw','Ghost House','Working Title','Miramax','STX'
+];
 function pickStudio(companies){ if(!companies||!companies.length) return ''; for(const k of KNOWN_STUDIOS){ const hit=companies.find(c=>(c.name||'').toLowerCase().includes(k.toLowerCase())); if(hit){ const raw=hit.name; if(/walt disney|^disney/i.test(raw))return 'Disney'; if(/columbia/i.test(raw))return 'Columbia'; if(/20th century/i.test(raw))return '20th Century'; if(/metro-goldwyn|(^| )mgm( |$)/i.test(raw))return 'MGM'; return raw.replace(/ Pictures| Productions| Entertainment| Studios| Company| Animation| Films/gi,'').trim()||raw; } } return companies[0].name; }
 function allStudioNames(){ const s=new Set(KNOWN_STUDIOS); state.movies.forEach(m=>{ if(m.studio)s.add(m.studio); }); return [...s]; }
 function populateStudioList(){ const dl=document.getElementById('studioList'); if(dl)dl.innerHTML=allStudioNames().map(n=>`<option value="${esc(n)}">`).join(''); }
